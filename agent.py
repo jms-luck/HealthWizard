@@ -25,49 +25,28 @@ import speech_recognition as sr
 from langchain.schema import AgentAction, AgentFinish, HumanMessage, AIMessage
 
 
-
-# In[27]:
-
-
-# Set API keys directly
 os.environ["TAVILY_API_KEY"] = "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"
 os.environ["GOOGLE_API_KEY"] = "AIzaSyCgaz3OFtXuNx-SCRPz2N58UCfpo0pcH_g"
 os.environ["SERPER_API_KEY"] = "ed4acec1529a6f8755a04900d2554b5252aba850b59262e44712c7596509ef4a"
-#os.environ["AZURE_MAPS_KEY"] = "b426c294-4e72-4dfa-9134-29ec38019e5f"
 os.environ["AZURE_MAPS_KEY"] = "EumXcWSYqKLcsw9zymB1cPRIfDzNbZBXO7BCjKsbsAITXSpRIZbMJQQJ99BBACYeBjFPDDZUAAAgAZMP1DsH"
 
 
-# In[ ]:
-
-
-# Load environment variables
 load_dotenv()
 
-# Set the Azure Maps key directly 
 AZURE_MAPS_KEY = "EumXcWSYqKLcsw9zymB1cPRIfDzNbZBXO7BCjKsbsAITXSpRIZbMJQQJ99BBACYeBjFPDDZUAAAgAZMP1DsH"
 os.environ["AZURE_MAPS_KEY"] = AZURE_MAPS_KEY
-
-# Verify API keys are set
 required_keys = ["TAVILY_API_KEY", "GOOGLE_API_KEY", "SERPER_API_KEY"]
 for key in required_keys:
     if not os.getenv(key):
         sys.exit(f"Error: {key} not found in environment variables. Please set it in .env file.")
 
 
-# In[ ]:
 
 
-# Configure Google API
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Initialize DuckDuckGo search tool
 search_tool = DuckDuckGoSearchRun()
 
-
-# In[ ]:
-
-
-# System Prompts
 SYSTEM_PROMPT = """
 You are an expert medical doctor providing empathetic and structured health advice. Engage patients conversationally based on the chat history to identify their health issues (e.g., illness, aches) and offer tailored solutions, including remedies, medication suggestions (with disclaimers), diet plans, and exercises.
 
@@ -99,10 +78,6 @@ Analyze this medical image professionally, suggesting possible conditions (e.g.,
 """
 
 
-# In[ ]:
-
-
-# Azure Maps API Functions
 def get_location_coordinates(location):
     """Get coordinates for a location using Azure Maps."""
     url = "https://atlas.microsoft.com/search/address/json"
@@ -133,10 +108,8 @@ def azure_maps_search_poi(lat, lon, search_term, entity_type, radius=10000, limi
     """Search for points of interest using Azure Maps."""
     search_url = "https://atlas.microsoft.com/search/poi/json"
     
-    # Set appropriate category based on entity_type
     category_param = ""
     if entity_type == "doctors":
-        # Use search term to find medical facilities
         search_term = f"{search_term} doctor medical"
     elif entity_type == "pharmacies":
         search_term = f"pharmacy {search_term}"
@@ -203,13 +176,10 @@ def azure_maps_search(query, entity_type, limit=5):
     search_term = parts[0].strip()
     location = parts[1].strip()
     
-    # First get the coordinates for the location
     lat, lon = get_location_coordinates(location)
     
     if not lat or not lon:
         return f"Location '{location}' not found. Please try a different location."
-    
-    # Now search for POIs near the coordinates
     return azure_maps_search_poi(lat, lon, search_term, entity_type, limit=limit)
 
 # Search Functions
@@ -299,8 +269,7 @@ def get_location_coordinates(location):
 def azure_maps_search_poi(lat, lon, search_term, entity_type, radius=10000, limit=5):
     """Search for points of interest using Azure Maps."""
     search_url = "https://atlas.microsoft.com/search/poi/json"
-    
-    # Set appropriate category based on entity_type
+
     category_param = ""
     if entity_type == "doctors":
         # Use search term to find medical facilities

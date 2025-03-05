@@ -39,8 +39,8 @@ GOOGLE_API_KEY= "AIzaSyAO-n2dhhke4Cq_Iix1-bILoU6EY7VNsnM" # Replace with your ac
 genai.configure(api_key=api_key)
 
 # Add Azure configuration after your Google API key setup
-AZURE_ENDPOINT = "https://hackocr.cognitiveservices.azure.com/"
-AZURE_KEY = "16vHEtnFtkwA2ZJlKEAG3MUPwCW0DOrwCrxzituErLU5F6OD2tTuJQQJ99BBACYeBjFXJ3w3AAAFACOGILIl"
+AZURE_ENDPOINT = "https://dscfdsdszsr.cognitiveservices.azure.com/"
+AZURE_KEY = "Eni45CPxDqNDF24sabmmIaxIosLh0MkYIN69P4Xo5Qg6cGzmgBTEJQQJ99BCACYeBjFXJ3w3AAAFACOGBd8D"
 
 # Initialize the Computer Vision client
 vision_client = ComputerVisionClient(
@@ -51,7 +51,8 @@ vision_client = ComputerVisionClient(
 # Update the Azure Translator configuration
 TRANSLATOR_ENDPOINT = "https://api.cognitive.microsofttranslator.com"
 TRANSLATOR_KEY = "BUZB48JYJGc9PPdCudfMKNLPwLuj9zu4Oye4ZDTTDmEgLvpHLkQBJQQJ99BBACLArgHXJ3w3AAAbACOG2h3q"
-TRANSLATOR_LOCATION = "southcentralus"  # Make sure this matches your Azure resource location
+TRANSLATOR_LOCATION = "eastus"  # Make sure this matches your Azure resource location
+
 
 # ----- Normal Reference Ranges -----
 NORMAL_RANGES = {
@@ -211,44 +212,55 @@ def plot_medical_report(extracted_data, title="Medical Report Parameters vs Norm
     st.pyplot(fig)
 
 def extract_text_from_image(image_file, target_language="en"):
-    """Extract text from an image using Azure Computer Vision and Tesseract as fallback."""
+    """Extract text from an image using Azure Computer Vision or Tesseract as fallback."""
     try:
-        # Convert uploaded file to bytes
-        image_bytes = image_file.getvalue()
-        
-        # Call Azure's OCR with bytes
-        read_response = vision_client.read_in_stream(io.BytesIO(image_bytes), raw=True)
-        read_operation_location = read_response.headers["Operation-Location"]
-        operation_id = read_operation_location.split("/")[-1]
+        # If Azure client is available, try Azure OCR first
+        if vision_client:
+            image_bytes = image_file.getvalue()
+            read_response = vision_client.read_in_stream(io.BytesIO(image_bytes), raw=True)
+            read_operation_location = read_response.headers["Operation-Location"]
+            operation_id = read_operation_location.split("/")[-1]
 
-        # Wait for the operation to complete
-        while True:
-            read_result = vision_client.get_read_result(operation_id)
-            if read_result.status not in ['notStarted', 'running']:
-                break
-            time.sleep(1)
+            # Wait for the operation to complete
+            while True:
+                read_result = vision_client.get_read_result(operation_id)
+                if read_result.status not in ['notStarted', 'running']:
+                    break
+                time.sleep(1)
 
-        # Extract text from Azure results
-        azure_text = ""
-        if read_result.status == OperationStatusCodes.succeeded:
-            for text_result in read_result.analyze_result.read_results:
-                for line in text_result.lines:
-                    azure_text += line.text + "\n"
-        
-        # If Azure OCR fails, fall back to Tesseract
-        if not azure_text.strip():
-            # Reset file pointer and use PIL/Tesseract
+            # Extract text from Azure results
+            azure_text = ""
+            if read_result.status == OperationStatusCodes.succeeded:
+                for text_result in read_result.analyze_result.read_results:
+                    for line in text_result.lines:
+                        azure_text += line.text + "\n"
+            
+            # If Azure OCR fails, fall back to Tesseract
+            if not azure_text.strip():
+                # Reset file pointer and use PIL/Tesseract
+                image_file.seek(0)
+                image = Image.open(image_file)
+                # Convert to array for OpenCV processing
+                image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+                # Apply image preprocessing
+                processed_img = cv2.adaptiveThreshold(
+                    gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                    cv2.THRESH_BINARY, 31, 2
+                )
+                # Extract text using Tesseract
+                azure_text = pytesseract.image_to_string(processed_img)
+
+        else:
+            # Skip Azure and use Tesseract directly
             image_file.seek(0)
             image = Image.open(image_file)
-            # Convert to array for OpenCV processing
             image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
             gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
-            # Apply image preprocessing
             processed_img = cv2.adaptiveThreshold(
                 gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
                 cv2.THRESH_BINARY, 31, 2
             )
-            # Extract text using Tesseract
             azure_text = pytesseract.image_to_string(processed_img)
 
         # Process extracted text
@@ -524,5 +536,5 @@ def main():
                 else:
                     st.info("No medicines recognized in the prescription.")
 
-if __name__ == "_main_":
+if __name__ == "__main__":  # This is correct
     main()
